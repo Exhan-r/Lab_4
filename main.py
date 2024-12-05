@@ -50,7 +50,7 @@ upperBound = 27
 
 # Robot-specific constants
 WHEEL_CIRCUMFERENCE_MM = 125.6  # Adjust this to match your wheel circumference
-DISTANCE_TARGET_MM = 300       # Distance to drive before stopping
+DISTANCE_TARGET_MM = 1500       # Distance to drive before stopping
 
 # Test results
 detection_success = 0
@@ -83,7 +83,7 @@ def drive_distance(target_mm):
         right_position = abs(rightMotor.position(DEGREES))
 
         if left_position < target_rotations and right_position < target_rotations:
-            drive(30, 30)
+            drive(-45, -45)
         else:
             drive(0, 0)
             return True
@@ -111,18 +111,19 @@ def detect_fruit():
     objects = Vision3.take_snapshot(Vision3__FRUIT)
     if objects:
         largest = Vision3.largest_object()
-        if 50 < largest.centerY < 100:  # Filter by expected height
-            return largest.centerX, largest.centerY
-    return None, None
+        #if 50 < largest.centerY < 100:  # Filter by expected height
+        #firstx, firsty = largest.centerX, largest.centerY
+        return largest.centerX, largest.centerY, largest.width, largest.height #, firstx, firsty
+    return None, None, 0, 0
 
-# Function to log test results
-def log_result(detected, collected):
-    global detection_success, collection_success
-    if detected:
-        detection_success += 1
-    if collected:
-        collection_success += 1
-    print(f"Detection Success: {detection_success}/20, Collection Success: {collection_success}/20")
+ # Function to log test results
+# def log_result(detected, collected):
+#     global detection_success, collection_success
+#     if detected:
+#         detection_success += 1
+#     if collected:
+#         collection_success += 1
+#     print(f"Detection Success: {detection_success}/20, Collection Success: {collection_success}/20")
 
 # Main autonomous function
 def mainFunction():
@@ -141,9 +142,10 @@ def mainFunction():
         print("State: SEARCHING")
         search_start_time = brain.timer.time(SECONDS)
         while brain.timer.time(SECONDS) - search_start_time < 5:  # 5-second timeout
-            drive(-30, 30)  # Rotate to search for fruit
-            cx, cy = detect_fruit()
+            drive(30, -30)  # Rotate to search for fruit
+            cx, cy, cwidth, cheight = detect_fruit()
             if cx is not None:
+                drive(0,0)
                 print("Fruit detected, transitioning to APPROACHING")
                 currentState = APPROACHING
                 break
@@ -153,31 +155,39 @@ def mainFunction():
 
     elif currentState == APPROACHING:
         print("State: APPROACHING")
-        cx, cy = detect_fruit()
+
+        cx, cy, cwidth, cheight = detect_fruit()
+        
         if cx is None:
             print("Lost fruit, returning to LINE FOLLOWING")
             currentState = LINE_FOLLOWING
         else:
-            error = cx - TARGET_X
+            error = TARGET_X - cx + 115.2
             turn_effort = K_X * error
-            drive(20 + turn_effort, 20 - turn_effort)
-
-            distance = ultraSonic.distance(MM)
-            if distance < 150:
+            drive(-20 + turn_effort, -20 - turn_effort)
+            print(cheight)
+            #distance = .distance(MM)
+            if  cheight > 100:
                 print("Close to fruit, transitioning to COLLECTING")
                 currentState = COLLECTING
 
     elif currentState == COLLECTING:
         print("State: COLLECTING")
         drive(0, 0)
-
-        armMotor.spin_to_position(45, DEGREES)
-        forkMotor.spin_to_position(30, DEGREES)
+        #armMotor.spin_to_position(45, DEGREES)
+        forkMotor.spin_to_position(52, DEGREES)
+        drive_distance(300)
         wait(2, SECONDS)
-        forkMotor.spin_to_position(0, DEGREES)
+        forkMotor.spin_to_position(-52, DEGREES)
         armMotor.spin_to_position(0, DEGREES)
 
-        currentState = LINE_FOLLOWING
+        drive(30, 30)
+        wait(2, SECONDS)
+        drive(0,0)
+
+        currentState = IDLE
+
+       # currentState = LINE_FOLLOWING
 
 # Run the autonomous loop
 while True:
